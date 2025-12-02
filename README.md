@@ -130,7 +130,29 @@ app/
 
 The API documentation is available at [localhost:8000](http://localhost:8000/). It is generated using
 [Swagger](https://swagger.io/). You need to start the server in order to see the documentation as it is being hosted
-locally.
+locally. The interactive docs include endpoints for both users and orders so you can explore and test requests from the
+browser.
+
+### Create an order via API
+
+Once the server is running, you can create a new order with a POST request to `/api/orders/add` including the required
+fields:
+
+```bash
+curl -X POST \
+  http://localhost:8000/api/orders/add \
+  -H "Content-Type: application/json" \
+  -d '{
+    "user": "John Doe",
+    "phone_number": "+1234567890",
+    "email": "john@example.com",
+    "products": ["Widget A", "Widget B"],
+    "price": "99.99"
+  }'
+```
+
+You can retrieve orders with `GET /api/orders` (or `GET /api/orders?id=<order_id>`), update them with
+`PUT /api/orders/update?id=<order_id>`, and delete them with `DELETE /api/orders/delete?id=<order_id>`.
 
 ## License
 
