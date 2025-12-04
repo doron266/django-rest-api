@@ -1,12 +1,13 @@
 from django.http import Http404
+from django.http import Http404
 from drf_yasg import openapi
 from drf_yasg.utils import swagger_auto_schema
 from rest_framework import status
 from rest_framework.exceptions import ValidationError
 from rest_framework.response import Response
 from rest_framework.decorators import api_view
-from .models import User, Order
-from .serializers import UserSerializer, OrderSerializer
+from .models import User, Order, Product
+from .serializers import UserSerializer, OrderSerializer, ProductSerializer
 from django.shortcuts import get_object_or_404
 
 
@@ -427,5 +428,176 @@ def delete_order(request):
         return Response({"result": "success", "message": "Order deleted"}, status=status.HTTP_204_NO_CONTENT)
     except Http404:
         return Response({"result": "error", "message": "Order not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"result": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@swagger_auto_schema(
+    method="get",
+    operation_summary="Lists all products or a single product by id",
+    operation_description="API endpoint that retrieves all products or a single product by id and returns them in JSON format.",
+    manual_parameters=[
+        openapi.Parameter(
+            "id",
+            openapi.IN_QUERY,
+            description="Product is searched by this id and returned if found. Optional, if not present, all products are returned.",
+            type=openapi.TYPE_STRING,
+        )
+    ],
+    responses={
+        200: "One or all products in JSON format",
+        400: "Bad request: Check error message for details",
+        404: "If product was requested by id but not found",
+        500: "Internal server error: Unexpected error",
+    },
+)
+@api_view(["GET"])
+def get_products(request):
+    """API endpoint that retrieves all products or a single product by id."""
+
+    if "id" in request.GET:
+        product_id = request.GET["id"]
+
+        if not product_id:
+            return Response(
+                {"result": "error", "message": "Id parameter is missing"}, status=status.HTTP_400_BAD_REQUEST
+            )
+
+        try:
+            product = get_object_or_404(Product, id=product_id)
+            serializer = ProductSerializer(product)
+            return Response(serializer.data)
+        except Http404:
+            return Response({"result": "error", "message": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+        except Exception as e:
+            return Response({"result": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    try:
+        products = Product.objects.all()
+        serializer = ProductSerializer(products, many=True)
+        return Response(serializer.data)
+    except Exception as e:
+        return Response({"result": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@swagger_auto_schema(
+    method="post",
+    operation_summary="Creates new product",
+    operation_description="API endpoint that creates a new product and returns the created product in JSON format.",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            "name": openapi.Schema(type=openapi.TYPE_STRING, description="Name of the product"),
+            "price": openapi.Schema(
+                type=openapi.TYPE_NUMBER, format=openapi.FORMAT_DECIMAL, description="Price of the product"
+            ),
+        },
+        required=["name", "price"],
+    ),
+    responses={
+        201: "Return the created product in JSON format",
+        400: "Bad request: Check error message for details",
+        500: "Internal server error: Unexpected error",
+    },
+)
+@api_view(["POST"])
+def add_product(request):
+    """API endpoint that creates a new product and returns the created product in JSON format."""
+
+    try:
+        serializer = ProductSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"result": "success", "data": serializer.data}, status=status.HTTP_201_CREATED)
+    except ValidationError as e:
+        return Response({"result": "error", "message": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({"result": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@swagger_auto_schema(
+    method="put",
+    operation_summary="Updates existing product",
+    operation_description="API endpoint that updates an existing product by provided id and returns the updated product in JSON format.",
+    request_body=openapi.Schema(
+        type=openapi.TYPE_OBJECT,
+        properties={
+            "name": openapi.Schema(type=openapi.TYPE_STRING, description="Update the name of the product"),
+            "price": openapi.Schema(
+                type=openapi.TYPE_NUMBER, format=openapi.FORMAT_DECIMAL, description="Update the price of the product"
+            ),
+        },
+        required=["name", "price"],
+    ),
+    manual_parameters=[
+        openapi.Parameter("id", openapi.IN_QUERY, description="Id of the product to update", type=openapi.TYPE_STRING)
+    ],
+    responses={
+        200: "Return the updated product in JSON format",
+        400: "Bad request: Check error message for details",
+        404: "No product found with the provided id",
+        500: "Internal server error: Unexpected error",
+    },
+)
+@api_view(["PUT"])
+def update_product(request):
+    """API endpoint that updates an existing product by provided id."""
+
+    product_id = request.query_params.get("id")
+
+    if not product_id:
+        return Response(
+            {"result": "error", "message": "Id parameter is missing"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        product = get_object_or_404(Product, id=product_id)
+    except Http404:
+        return Response({"result": "error", "message": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
+    except Exception as e:
+        return Response({"result": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    try:
+        serializer = ProductSerializer(product, data=request.data)
+        serializer.is_valid(raise_exception=True)
+        serializer.save()
+        return Response({"result": "success", "data": serializer.data}, status=status.HTTP_200_OK)
+    except ValidationError as e:
+        return Response({"result": "error", "message": e.detail}, status=status.HTTP_400_BAD_REQUEST)
+    except Exception as e:
+        return Response({"result": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+
+@swagger_auto_schema(
+    method="delete",
+    operation_summary="Deletes existing product",
+    operation_description="API endpoint that deletes an existing product record by id",
+    manual_parameters=[
+        openapi.Parameter("id", openapi.IN_QUERY, description="Id of the product to be deleted", type=openapi.TYPE_STRING)
+    ],
+    responses={
+        204: "Success: Product deleted",
+        400: "Bad request: Check error message for details",
+        404: "No product found with the provided id",
+        500: "Internal server error: Unexpected error",
+    },
+)
+@api_view(["DELETE"])
+def delete_product(request):
+    """API endpoint that deletes an existing product record by id."""
+
+    product_id = request.query_params.get("id")
+
+    if not product_id:
+        return Response(
+            {"result": "error", "message": "Id parameter is missing"}, status=status.HTTP_400_BAD_REQUEST
+        )
+
+    try:
+        product = get_object_or_404(Product, id=product_id)
+        product.delete()
+        return Response({"result": "success", "message": "Product deleted"}, status=status.HTTP_204_NO_CONTENT)
+    except Http404:
+        return Response({"result": "error", "message": "Product not found"}, status=status.HTTP_404_NOT_FOUND)
     except Exception as e:
         return Response({"result": "error", "message": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
