@@ -23,7 +23,7 @@ schema_view = get_schema_view(
     openapi.Info(
         title="Django REST API",
         default_version="v1",
-        description="Example Django REST API with GET, POST, PUT, DELETE methods.",
+        description="Example Django REST API with GET, POST, PUT, DELETE methods for users, orders and products.",
     ),
     public=True,
 )
